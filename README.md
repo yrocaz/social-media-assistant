@@ -54,17 +54,38 @@ bun install
 
 ### 2. Set Up Cloudflare Resources
 
-Create required resources in your Cloudflare account:
+**Option A: Automated Setup (Recommended)**
+
+Run the setup script to automatically create all resources and sync secrets:
+
+```bash
+# Login to Cloudflare first
+npx wrangler login
+
+# Create .dev.vars with your API keys (see step 3 below for format)
+# Then run the setup script
+./setup.sh
+```
+
+The script will:
+- Create D1 database (`smm-db`)
+- Create R2 bucket (`smm-assets`)
+- Run database migrations
+- Sync all secrets from `.dev.vars` to Cloudflare
+
+**Option B: Manual Setup**
+
+Create required resources manually:
 
 ```bash
 # Login to Cloudflare
-wrangler login
+npx wrangler login
 
 # Create D1 database
-wrangler d1 create prod-momwise-smm
+npx wrangler d1 create smm-db
 
 # Create R2 bucket
-wrangler r2 bucket create prod-momwise-ssm
+npx wrangler r2 bucket create smm-assets
 
 # Set up R2 public access (optional, for CDN)
 # Configure custom domain in Cloudflare Dashboard: R2 → your-bucket → Settings → Public Access
