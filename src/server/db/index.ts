@@ -7,7 +7,7 @@ import * as schema from "./schema";
 // Database Client
 // ============================================================================
 
-export const db = drizzle(env.prod_momwise_smm_db, { schema });
+export const db = drizzle(env.DATABASE, { schema });
 
 /**
  * Creates a Drizzle database client from a D1Database instance.

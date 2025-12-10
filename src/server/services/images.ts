@@ -75,7 +75,7 @@ export async function uploadBufferToR2(
   const key = `posts/${timestamp}-${filename}`;
 
   // Upload to R2
-  await env.prod_momwise_ssm_bucket.put(key, buffer, {
+  await env.BUCKET.put(key, buffer, {
     httpMetadata: {
       contentType,
     },
@@ -94,7 +94,7 @@ export async function uploadBufferToR2(
  * Delete an image from R2
  */
 export async function deleteImageFromR2(key: string): Promise<void> {
-  await env.prod_momwise_ssm_bucket.delete(key);
+  await env.BUCKET.delete(key);
 }
 
 // ============================================================================

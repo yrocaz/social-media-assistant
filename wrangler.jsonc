@@ -15,16 +15,16 @@
 	},
 	"d1_databases": [
 		{
-			"binding": "prod_momwise_smm_db",
-			"database_name": "prod-momwise-smm",
-			"database_id": "82fc4639-3943-45e3-9183-11ac60e5ff32",
+			"binding": "DATABASE",
+			"database_name": "smm-db",
+			"database_id": "7ee08de3-aaca-4a28-8fd9-fa6853fbc61e",
 			"remote": true
 		}
 	],
 	"r2_buckets": [
 		{
-			"bucket_name": "prod-momwise-ssm",
-			"binding": "prod_momwise_ssm_bucket",
+			"bucket_name": "smm-assets",
+			"binding": "BUCKET",
 			"remote": true
 		}
 	],

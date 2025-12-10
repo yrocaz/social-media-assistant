@@ -121,7 +121,7 @@ export async function generateTextCard(
   const key = `posts/${timestamp}-${postId}-card.svg`;
 
   // Upload to R2
-  await env.prod_momwise_ssm_bucket.put(key, svg, {
+  await env.BUCKET.put(key, svg, {
     httpMetadata: {
       contentType: "image/svg+xml",
     },
