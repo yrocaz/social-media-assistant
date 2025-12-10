@@ -1,118 +1,628 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { authMiddleware } from "@/server/middleware/auth";
+import { useSession, signOut } from "@/lib/auth-client";
 import {
-  Zap,
-  Server,
-  Route as RouteIcon,
-  Shield,
-  Waves,
+  listPostsFn,
+  generatePostsFn,
+  generatePostsWithPromptFn,
+  approvePostFn,
+  rejectPostFn,
+  markPostedFn,
+  deletePostFn,
+} from "@/server/functions/posts";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
+import {
+  LogOut,
+  Plus,
   Sparkles,
-} from 'lucide-react'
+  Check,
+  X,
+  Copy,
+  Share,
+  Loader2,
+  User,
+  ChevronDown,
+  Shuffle,
+  MessageSquare,
+  ArrowLeft,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import type { PostStatus } from "@/server/db/schema";
+import {
+  PostCardMenu,
+  TextVariationSheet,
+  ImageRegenerateDialog,
+  GeneratePostModal,
+} from "@/components/posts";
 
-export const Route = createFileRoute('/')({ component: App })
+export const Route = createFileRoute("/")({
+  component: Dashboard,
+  server: {
+    middleware: [authMiddleware],
+  },
+  loader: async () => {
+    const posts = await listPostsFn();
+    return { posts };
+  },
+});
 
-function App() {
-  const features = [
-    {
-      icon: <Zap className="w-12 h-12 text-cyan-400" />,
-      title: 'Powerful Server Functions',
-      description:
-        'Write server-side code that seamlessly integrates with your client components. Type-safe, secure, and simple.',
-    },
-    {
-      icon: <Server className="w-12 h-12 text-cyan-400" />,
-      title: 'Flexible Server Side Rendering',
-      description:
-        'Full-document SSR, streaming, and progressive enhancement out of the box. Control exactly what renders where.',
-    },
-    {
-      icon: <RouteIcon className="w-12 h-12 text-cyan-400" />,
-      title: 'API Routes',
-      description:
-        'Build type-safe API endpoints alongside your application. No separate backend needed.',
-    },
-    {
-      icon: <Shield className="w-12 h-12 text-cyan-400" />,
-      title: 'Strongly Typed Everything',
-      description:
-        'End-to-end type safety from server to client. Catch errors before they reach production.',
-    },
-    {
-      icon: <Waves className="w-12 h-12 text-cyan-400" />,
-      title: 'Full Streaming Support',
-      description:
-        'Stream data from server to client progressively. Perfect for AI applications and real-time updates.',
-    },
-    {
-      icon: <Sparkles className="w-12 h-12 text-cyan-400" />,
-      title: 'Next Generation Ready',
-      description:
-        'Built from the ground up for modern web applications. Deploy anywhere JavaScript runs.',
-    },
-  ]
+type ParsedPost = Awaited<ReturnType<typeof listPostsFn>>[number];
+
+function Dashboard() {
+  const { data: session } = useSession();
+  const user = session?.user;
+  const { posts: initialPosts } = Route.useLoaderData();
+
+  const [posts, setPosts] = useState<ParsedPost[]>(initialPosts);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [activeTab, setActiveTab] = useState<PostStatus>("draft");
+  const [promptModalOpen, setPromptModalOpen] = useState(false);
+
+  const handleSignOut = async () => {
+    await signOut();
+    window.location.href = "/login";
+  };
+
+  const handleGenerateRandom = async () => {
+    setIsGenerating(true);
+    try {
+      const result = await generatePostsFn();
+      setPosts((prev) => [...result.posts, ...prev]);
+      toast.success(`Generated ${result.posts.length} new posts!`);
+      setActiveTab("draft");
+    } catch (error) {
+      toast.error("Failed to generate posts. Please try again.");
+      console.error(error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleGenerateFromPrompt = async (prompt: string, count: number) => {
+    setIsGenerating(true);
+    try {
+      const result = await generatePostsWithPromptFn({
+        data: { prompt, count },
+      });
+      setPosts((prev) => [...result.posts, ...prev]);
+      toast.success(
+        `Generated ${result.posts.length} new post${result.posts.length > 1 ? "s" : ""}!`
+      );
+      setActiveTab("draft");
+      setPromptModalOpen(false);
+    } catch (error) {
+      toast.error("Failed to generate posts. Please try again.");
+      console.error(error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Helper to update post and sort by updatedAt (most recent first)
+  const updatePostAndSort = (
+    updatedPost: ParsedPost,
+    targetTab?: PostStatus
+  ) => {
+    setPosts((prev) =>
+      prev
+        .map((p) => (p.id === updatedPost.id ? updatedPost : p))
+        .sort(
+          (a, b) =>
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        )
+    );
+    if (targetTab) {
+      setActiveTab(targetTab);
+    }
+  };
+
+  const handleApprove = async (id: string) => {
+    try {
+      const updated = await approvePostFn({ data: { id } });
+      if (updated) {
+        updatePostAndSort(updated, "approved");
+        toast.success("Post approved!");
+      }
+    } catch (error) {
+      toast.error("Failed to approve post");
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    try {
+      const updated = await rejectPostFn({ data: { id } });
+      if (updated) {
+        updatePostAndSort(updated, "rejected");
+        toast.success("Post rejected");
+      }
+    } catch (error) {
+      toast.error("Failed to reject post");
+    }
+  };
+
+  const handleMarkPosted = async (id: string) => {
+    try {
+      const updated = await markPostedFn({ data: { id } });
+      if (updated) {
+        updatePostAndSort(updated, "posted");
+        toast.success("Marked as posted!");
+      }
+    } catch (error) {
+      toast.error("Failed to update post");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deletePostFn({ data: { id } });
+      setPosts((prev) => prev.filter((p) => p.id !== id));
+      toast.success("Post deleted");
+    } catch (error) {
+      toast.error("Failed to delete post");
+    }
+  };
+
+  const handleCopy = async (post: ParsedPost) => {
+    const hashtags = post.hashtags.map((h: string) => `#${h}`).join(" ");
+    const text = `${post.caption}\n\n${hashtags}`;
+
+    await navigator.clipboard.writeText(text);
+    toast.success("Caption copied to clipboard!");
+  };
+
+  const handleUpdate = (updatedPost: ParsedPost) => {
+    const targetTab = updatedPost.status === "draft" ? "draft" : activeTab;
+    updatePostAndSort(updatedPost, targetTab);
+  };
+
+  const filteredPosts = posts.filter((p) => p.status === activeTab);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
-      <section className="relative py-20 px-6 text-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-purple-500/10"></div>
-        <div className="relative max-w-5xl mx-auto">
-          <div className="flex items-center justify-center gap-6 mb-6">
-            <img
-              src="/tanstack-circle-logo.png"
-              alt="TanStack Logo"
-              className="w-24 h-24 md:w-32 md:h-32"
-            />
-            <h1 className="text-6xl md:text-7xl font-black text-white [letter-spacing:-0.08em]">
-              <span className="text-gray-300">TANSTACK</span>{' '}
-              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                START
-              </span>
-            </h1>
-          </div>
-          <p className="text-2xl md:text-3xl text-gray-300 mb-4 font-light">
-            The framework for next generation AI applications
-          </p>
-          <p className="text-lg text-gray-400 max-w-3xl mx-auto mb-8">
-            Full-stack framework powered by TanStack Router for React and Solid.
-            Build modern applications with server functions, streaming, and type
-            safety.
-          </p>
-          <div className="flex flex-col items-center gap-4">
-            <a
-              href="https://tanstack.com/start"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-8 py-3 bg-cyan-500 hover:bg-cyan-600 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-cyan-500/50"
-            >
-              Documentation
-            </a>
-            <p className="text-gray-400 text-sm mt-2">
-              Begin your TanStack Start journey by editing{' '}
-              <code className="px-2 py-1 bg-slate-700 rounded text-cyan-400">
-                /src/routes/index.tsx
-              </code>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b sticky top-0 bg-background z-50">
+        <div className="container mx-auto flex h-14 items-center justify-between px-4">
+          <h1 className="text-lg font-bold">Momwise Content</h1>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <User className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel className="font-normal text-xs text-muted-foreground">
+                {user?.email}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </header>
+
+      {/* Main content */}
+      <main className="container mx-auto px-4 py-6">
+        {/* Action bar */}
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-xl font-bold sm:text-2xl">Content Dashboard</h2>
+            <p className="text-sm text-muted-foreground">
+              Generate and manage your social media posts
             </p>
           </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button disabled={isGenerating} className="w-full sm:w-auto">
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Generate
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={handleGenerateRandom}
+                disabled={isGenerating}
+              >
+                <Shuffle className="h-4 w-4 mr-2" />
+                Random
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setPromptModalOpen(true)}
+                disabled={isGenerating}
+              >
+                <MessageSquare className="h-4 w-4 mr-2" />
+                From Prompt
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </section>
 
-      <section className="py-16 px-6 max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((feature, index) => (
-            <div
-              key={index}
-              className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 hover:border-cyan-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/10"
-            >
-              <div className="mb-4">{feature.icon}</div>
-              <h3 className="text-xl font-semibold text-white mb-3">
-                {feature.title}
-              </h3>
-              <p className="text-gray-400 leading-relaxed">
-                {feature.description}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
+        {/* Generate from Prompt Modal */}
+        <GeneratePostModal
+          open={promptModalOpen}
+          onOpenChange={setPromptModalOpen}
+          onGenerate={handleGenerateFromPrompt}
+          isGenerating={isGenerating}
+        />
+
+        {/* Tabs for post status */}
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as PostStatus)}
+          className="space-y-4"
+        >
+          <TabsList>
+            <TabsTrigger value="draft">
+              Draft{" "}
+              <span className="hidden sm:inline-block">
+                ({posts.filter((p) => p.status === "draft").length})
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="approved">
+              Approved{" "}
+              <span className="hidden sm:inline-block">
+                ({posts.filter((p) => p.status === "approved").length})
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="rejected">
+              Rejected{" "}
+              <span className="hidden sm:inline-block">
+                ({posts.filter((p) => p.status === "rejected").length})
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="posted">
+              Posted{" "}
+              <span className="hidden sm:inline-block">
+                ({posts.filter((p) => p.status === "posted").length})
+              </span>
+            </TabsTrigger>
+          </TabsList>
+
+          {(["draft", "approved", "rejected", "posted"] as const).map(
+            (status) => (
+              <TabsContent key={status} value={status} className="space-y-4">
+                {isGenerating && status === "draft" ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[1, 2, 3].map((i) => (
+                      <Card key={i}>
+                        <CardHeader>
+                          <Skeleton className="h-4 w-24" />
+                          <Skeleton className="h-6 w-full" />
+                        </CardHeader>
+                        <CardContent>
+                          <Skeleton className="aspect-4/5 w-full mb-4" />
+                          <Skeleton className="h-20 w-full" />
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : filteredPosts.length === 0 ? (
+                  <EmptyState status={status} />
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredPosts.map((post) => (
+                      <PostCard
+                        key={post.id}
+                        post={post}
+                        onApprove={() => handleApprove(post.id)}
+                        onReject={() => handleReject(post.id)}
+                        onMarkPosted={() => handleMarkPosted(post.id)}
+                        onDelete={() => handleDelete(post.id)}
+                        onCopy={() => handleCopy(post)}
+                        onUpdate={handleUpdate}
+                      />
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            )
+          )}
+        </Tabs>
+      </main>
     </div>
-  )
+  );
+}
+
+// ============================================================================
+// PostCard Component
+// ============================================================================
+
+interface PostCardProps {
+  post: ParsedPost;
+  onApprove: () => void;
+  onReject: () => void;
+  onMarkPosted: () => void;
+  onDelete: () => void;
+  onCopy: () => void;
+  onUpdate: (updatedPost: ParsedPost) => void;
+}
+
+function PostCard({
+  post,
+  onApprove,
+  onReject,
+  onMarkPosted,
+  onDelete,
+  onCopy,
+  onUpdate,
+}: PostCardProps) {
+  const [expanded, setExpanded] = useState(false);
+  const [textSheetOpen, setTextSheetOpen] = useState(false);
+  const [imageDialogOpen, setImageDialogOpen] = useState(false);
+
+  // Get names from email (part before @)
+  const getName = (email?: string | null) => email?.split("@")[0] ?? "?";
+  const getInitial = (email?: string | null) =>
+    getName(email).charAt(0).toUpperCase();
+
+  const creatorName = getName(post.creator?.email);
+  const creatorInitial = getInitial(post.creator?.email);
+
+  // Get action user based on status
+  const getActionInfo = () => {
+    switch (post.status) {
+      case "approved":
+        return post.approver
+          ? { label: "Approved by", name: getName(post.approver.email) }
+          : null;
+      case "rejected":
+        return post.rejector
+          ? { label: "Rejected by", name: getName(post.rejector.email) }
+          : null;
+      case "posted":
+        return post.poster
+          ? { label: "Posted by", name: getName(post.poster.email) }
+          : null;
+      default:
+        return null;
+    }
+  };
+
+  const actionInfo = getActionInfo();
+
+  const AvatarInfoContent = () => (
+    <div className="space-y-1 text-sm">
+      {actionInfo && (
+        <p>
+          <span className="text-muted-foreground">{actionInfo.label}</span>{" "}
+          <span className="font-medium">{actionInfo.name}</span>
+        </p>
+      )}
+      <p>
+        <span className="text-muted-foreground">Created by</span>{" "}
+        <span className="font-medium">{creatorName}</span>
+      </p>
+    </div>
+  );
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary">{post.pillar}</Badge>
+              {post.creator && (
+                <>
+                  {/* Desktop: HoverCard */}
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
+                      <Avatar className="h-5 w-5 text-[10px] cursor-pointer hidden sm:flex">
+                        <AvatarFallback>{creatorInitial}</AvatarFallback>
+                      </Avatar>
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-auto">
+                      <AvatarInfoContent />
+                    </HoverCardContent>
+                  </HoverCard>
+                  {/* Mobile: Popover */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Avatar className="h-5 w-5 text-[10px] cursor-pointer sm:hidden">
+                        <AvatarFallback>{creatorInitial}</AvatarFallback>
+                      </Avatar>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto">
+                      <AvatarInfoContent />
+                    </PopoverContent>
+                  </Popover>
+                </>
+              )}
+            </div>
+            <PostCardMenu
+              onRegenerateText={() => setTextSheetOpen(true)}
+              onRegenerateImage={() => setImageDialogOpen(true)}
+              onDelete={onDelete}
+            />
+          </div>
+          <CardTitle className="text-base leading-tight">{post.hook}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* Image preview */}
+          {post.imageUrl ? (
+            <div className="aspect-4/5 bg-muted rounded-md overflow-hidden">
+              <img
+                src={post.imageUrl}
+                alt={post.hook}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="aspect-4/5 bg-muted rounded-md flex items-center justify-center">
+              <span className="text-muted-foreground text-sm">
+                Image pending...
+              </span>
+            </div>
+          )}
+
+          {/* Caption preview */}
+          <div className="text-sm">
+            <p className={expanded ? "" : "line-clamp-3"}>{post.caption}</p>
+            {post.caption.length > 150 && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="text-primary text-xs mt-1"
+              >
+                {expanded ? "Show less" : "Show more"}
+              </button>
+            )}
+          </div>
+
+          {/* Hashtags */}
+          <div className="flex flex-wrap gap-1">
+            {post.hashtags.slice(0, 5).map((tag: string) => (
+              <span key={tag} className="text-xs text-primary">
+                #{tag}
+              </span>
+            ))}
+            {post.hashtags.length > 5 && (
+              <span className="text-xs text-muted-foreground">
+                +{post.hashtags.length - 5} more
+              </span>
+            )}
+          </div>
+        </CardContent>
+        <CardFooter className="flex gap-2 flex-wrap">
+          {post.status === "draft" && (
+            <>
+              <Button size="sm" onClick={onApprove}>
+                <Check className="h-3 w-3 mr-1" />
+                Approve
+              </Button>
+              <Button size="sm" variant="outline" onClick={onReject}>
+                <X className="h-3 w-3 mr-1" />
+                Reject
+              </Button>
+            </>
+          )}
+          {post.status === "approved" && (
+            <>
+              <Button size="sm" onClick={onCopy}>
+                <Copy className="h-3 w-3 mr-1" />
+                Copy
+              </Button>
+              <Button size="sm" variant="outline" onClick={onMarkPosted}>
+                <Share className="h-3 w-3 mr-1" />
+                Mark Posted
+              </Button>
+            </>
+          )}
+          {post.status === "posted" && (
+            <>
+              <Button size="sm" variant="outline" onClick={onApprove}>
+                <X className="h-3 w-3 mr-1" />
+                Unmark Posted
+              </Button>
+            </>
+          )}
+          {post.status === "rejected" && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onUpdate({ ...post, status: "draft" })}
+              >
+                <ArrowLeft className="h-3 w-3 mr-1" />
+                Back to Draft
+              </Button>
+            </>
+          )}
+        </CardFooter>
+      </Card>
+
+      {/* Text Variation Sheet */}
+      <TextVariationSheet
+        post={post}
+        open={textSheetOpen}
+        onOpenChange={setTextSheetOpen}
+        onAccept={onUpdate}
+      />
+
+      {/* Image Regenerate Dialog */}
+      <ImageRegenerateDialog
+        post={post}
+        open={imageDialogOpen}
+        onOpenChange={setImageDialogOpen}
+        onRegenerate={onUpdate}
+      />
+    </>
+  );
+}
+
+// ============================================================================
+// EmptyState Component
+// ============================================================================
+
+function EmptyState({ status }: { status: PostStatus }) {
+  const messages: Record<PostStatus, { title: string; description: string }> = {
+    draft: {
+      title: "No draft posts",
+      description: "Generate some posts to get started",
+    },
+    approved: {
+      title: "No approved posts",
+      description: "Approved posts will appear here",
+    },
+    rejected: {
+      title: "No rejected posts",
+      description: "Rejected posts will appear here",
+    },
+    posted: {
+      title: "No posted content",
+      description: "Posts marked as shared will appear here",
+    },
+  };
+
+  return (
+    <Card className="border-dashed">
+      <CardContent className="flex flex-col items-center justify-center py-12">
+        <Plus className="h-12 w-12 text-muted-foreground/50 mb-4" />
+        <CardTitle className="text-lg mb-2">{messages[status].title}</CardTitle>
+        <CardDescription>{messages[status].description}</CardDescription>
+      </CardContent>
+    </Card>
+  );
 }

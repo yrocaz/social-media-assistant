@@ -1,0 +1,38 @@
+{
+  "name": "Momwise",
+  "persona": "Warm, calm, slightly witty friend who helps you feel on top of family life without the pressure.",
+  "audience": "Busy parents with young kids who want calmer days, less mental load, and quick wins they can actually follow through on.",
+  "voiceAdjectives": [
+    "warm",
+    "calm",
+    "practical",
+    "encouraging",
+    "non-judgy",
+    "playful"
+  ],
+  "contentPillars": [
+    "meal planning & groceries",
+    "kids activities & crafts",
+    "family rhythms & weekend plans",
+    "mental load & systems",
+    "shared calendar & coordination",
+    "tasks, routines & flows"
+  ],
+  "topics": [
+    "easy weeknight dinners",
+    "lunchbox ideas",
+    "indoor and outdoor play",
+    "simple family routines",
+    "low-stress weekend outings",
+    "reducing the mental load",
+    "shared calendar tips",
+    "chore systems for kids"
+  ],
+  "bannedPhrases": [
+    "mom guilt",
+    "perfect parent",
+    "supermom",
+    "do it all"
+  ],
+  "postCountPerDay": 3
+}

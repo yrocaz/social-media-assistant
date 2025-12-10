@@ -12,6 +12,24 @@
 	"main": "@tanstack/react-start/server-entry",
 	"observability": {
 		"enabled": true
+	},
+	"d1_databases": [
+		{
+			"binding": "prod_momwise_smm_db",
+			"database_name": "prod-momwise-smm",
+			"database_id": "82fc4639-3943-45e3-9183-11ac60e5ff32",
+			"remote": true
+		}
+	],
+	"r2_buckets": [
+		{
+			"bucket_name": "prod-momwise-ssm",
+			"binding": "prod_momwise_ssm_bucket",
+			"remote": true
+		}
+	],
+	"vars": {
+		"CDN_URL": "https://cdn-ssm.momwise.ai"
 	}
 	/**
 	 * Smart Placement

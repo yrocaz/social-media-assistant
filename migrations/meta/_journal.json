@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1764863838649,
+      "tag": "0000_new_venus",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1764864424908,
+      "tag": "0001_eminent_scalphunter",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1764868028764,
+      "tag": "0002_abnormal_riptide",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1764882408681,
+      "tag": "0003_curved_siren",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1764883630554,
+      "tag": "0004_dry_chronomancer",
+      "breakpoints": true
+    }
+  ]
+}
