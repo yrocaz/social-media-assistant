@@ -1,11 +1,11 @@
-import { generateObject, generateText } from "ai";
+import { generateObject, generateText, type LanguageModel } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { perplexity } from "@ai-sdk/perplexity";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import brandConfig from "../../../config/brand.json";
+import config from "../../../config/llm.json";
 import type { ToneOption, ImageStyle } from "../db/schema";
-import { env } from "cloudflare:workers";
 
 // ============================================================================
 // Types
@@ -40,13 +40,43 @@ export const generatedPostsSchema = z.object({
 export type GeneratedPost = z.infer<typeof generatedPostSchema>;
 export type GeneratedPosts = z.infer<typeof generatedPostsSchema>;
 
+function getResearchModel(): LanguageModel {
+  switch (config.researchModel.provider) {
+    case "perplexity":
+      return perplexity(config.researchModel.model);
+    case "google":
+      return google(config.researchModel.model);
+    case "openai":
+      return openai(config.researchModel.model);
+    default:
+      throw new Error(
+        `Unsupported research model provider: ${config.researchModel.provider}`
+      );
+  }
+}
+
+function getGenerationModel(): LanguageModel {
+  switch (config.generationModel.provider) {
+    case "google":
+      return google(config.generationModel.model);
+    case "openai":
+      return openai(config.generationModel.model);
+    case "perplexity":
+      return perplexity(config.generationModel.model);
+    default:
+      throw new Error(
+        `Unsupported generation model provider: ${config.generationModel.provider}`
+      );
+  }
+}
+
 // ============================================================================
 // Trend Research (Perplexity)
 // ============================================================================
 
 export async function researchTrends(): Promise<string> {
   const { text } = await generateText({
-    model: perplexity("sonar-pro"),
+    model: getResearchModel(),
     prompt: `Research current trending topics and viral content formats on Instagram and TikTok for parenting content creators.
 
 Focus on:
@@ -146,10 +176,6 @@ export async function generatePosts(
     }
   }
 
-  const google = createGoogleGenerativeAI({
-    apiKey: env.GOOGLE_AI_API_KEY,
-  });
-
   // Build prompt based on whether we have a custom prompt
   const userPrompt = options.customPrompt
     ? `Generate ${postCount} social media post${postCount > 1 ? "s" : ""} based on this topic/prompt:
@@ -178,7 +204,7 @@ ${trendResearch ? "- Incorporate trending topics and formats from the research" 
 Return exactly ${postCount} posts.`;
 
   const { object } = await generateObject({
-    model: google("gemini-3-pro-preview"),
+    model: getGenerationModel(),
     schema: createPostsSchema(postCount),
     system: buildSystemPrompt(trendResearch),
     prompt: userPrompt,
@@ -228,12 +254,8 @@ export async function generateTextVariations(
     ? `\n\nTone adjustment: ${toneInstructions[input.tone]}`
     : "";
 
-  const google = createGoogleGenerativeAI({
-    apiKey: env.GOOGLE_AI_API_KEY,
-  });
-
   const { object } = await generateObject({
-    model: google("gemini-3-pro-preview"),
+    model: getGenerationModel(),
     schema: textVariationOutputSchema,
     system: buildSystemPrompt(),
     prompt: `Generate 3 variations of this social media post based on user feedback.
@@ -283,7 +305,7 @@ export async function generateImprovedImagePrompt(
   input: GenerateImagePromptInput
 ): Promise<{ imagePrompt: string; reasoning: string }> {
   const { object } = await generateObject({
-    model: openai("gpt-4o"),
+    model: getGenerationModel(),
     schema: improvedImagePromptSchema,
     system: `You are an expert at creating image generation prompts for social media content.
 

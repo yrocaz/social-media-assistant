@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import Replicate, { FileOutput } from "replicate";
+import config from "../../../config/llm.json";
 
 // ============================================================================
 // Types
@@ -32,7 +33,9 @@ export async function generateImageBuffer(
 ): Promise<Buffer> {
   const { prompt, aspectRatio = "3:4" } = options;
 
-  const response = await replicate.run("google/imagen-3", {
+  const model = config.imageGenerationModel.model as `${string}/${string}`;
+
+  const response = await replicate.run(model, {
     input: {
       prompt: `${prompt}. High quality, professional photography style, warm lighting, lifestyle photography.`,
       aspect_ratio: aspectRatio,

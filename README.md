@@ -115,18 +115,20 @@ Create `.dev.vars` for local development:
 
 ```bash
 BETTER_AUTH_SECRET=your-secret-key-min-32-chars
-GOOGLE_AI_API_KEY=your-google-ai-key
+GOOGLE_GENERATIVE_AI_API_KEY=your-google-ai-key
 PERPLEXITY_API_KEY=your-perplexity-key
 REPLICATE_API_TOKEN=your-replicate-token
+OPENAI_API_KEY=your-openai-key
 ```
 
 For production, set secrets via Wrangler:
 
 ```bash
 wrangler secret put BETTER_AUTH_SECRET
-wrangler secret put GOOGLE_AI_API_KEY
+wrangler secret put GOOGLE_GENERATIVE_AI_API_KEY
 wrangler secret put PERPLEXITY_API_KEY
 wrangler secret put REPLICATE_API_TOKEN
+wrangler secret put OPENAI_API_KEY
 ```
 
 ### 4. Set Up Database
@@ -158,6 +160,26 @@ Edit `config/brand.json` to match your brand:
   "topics": ["topic 1", "topic 2"],
   "bannedPhrases": ["phrase to avoid"],
   "postCountPerDay": 3
+}
+```
+
+Edit `config/llm.json` to configure the LLM models:
+
+Make sure you have api keys in the .dev.vars file for models and providers you are using.
+```json
+{
+  "researchModel": {
+    "provider": "perplexity",
+    "model": "sonar-pro"
+  },
+  "generationModel": {
+    "provider": "google",
+    "model": "gemini-3-pro-preview"
+  },
+  "imageGenerationModel": {
+    "provider": "replicate",
+    "model": "google/imagen-3"
+  }
 }
 ```
 

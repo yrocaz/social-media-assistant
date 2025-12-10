@@ -1,0 +1,14 @@
+{
+  "researchModel": {
+    "provider": "perplexity",
+    "model": "sonar-pro"
+  },
+  "generationModel": {
+    "provider": "google",
+    "model": "gemini-3-pro-preview"
+  },
+  "imageGenerationModel": {
+    "provider": "replicate",
+    "model": "google/imagen-3"
+  }
+}
